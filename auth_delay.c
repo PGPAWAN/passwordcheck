@@ -1,10 +1,12 @@
 
 #include "postgres.h"
+
+#include <limits.h>
+#include "libpq/auth.h"
 #include "port.h"
 #include "utils/guc.h"
 #include "utils/timestamp.h"
-#include "libpq/libpq.h"
-#include "tcop/postgres.h"  // for get_port
+#include "libpq/libpq.h"  // Include necessary header for gethostname
 
 PG_MODULE_MAGIC;
 
@@ -14,27 +16,6 @@ static char *api_url = "http://example.com/webhook";  // Specify your API URL
 
 /* Original Hook */
 static ClientAuthentication_hook_type original_client_auth_hook = NULL;
-
-/*
- * Extract hostname from connection string
- */
-static char *
-extract_hostname_from_connstr(void)
-{
-    Port *port = get_port(MyProc);
-    if (port != NULL)
-    {
-        const char *connstr = port->remote_host;
-        char *hostname = pstrdup(connstr);
-        char *pos = strchr(hostname, ':');
-        if (pos != NULL)
-        {
-            *pos = '\0';  // Null-terminate at the first colon
-        }
-        return hostname;
-    }
-    return NULL;
-}
 
 /*
  * Check authentication
@@ -55,20 +36,14 @@ auth_delay_checks(Port *port, int status)
     {
         pg_usleep(1000L * auth_delay_milliseconds);
 
-        /* Extract hostname from connection string */
-        char *hostname = extract_hostname_from_connstr();
+        /* Call an external API using curl with username, client IP, and local host as parameters */
+        char local_host[HOST_NAME_MAX + 1];
+        gethostname(local_host, sizeof(local_host));
 
-        if (hostname != NULL)
-        {
-            /* Call an external API using curl with username, client IP, and hostname as parameters */
-            char curl_command[1024];
-            snprintf(curl_command, sizeof(curl_command),
-                     "curl -X POST %s -d 'username=%s&client_ip=%s&host=%s'",
-                     api_url, port->user_name, port->remote_host, hostname);
-            system(curl_command);
-
-            pfree(hostname);
-        }
+        char curl_command[1024];
+        snprintf(curl_command, sizeof(curl_command), "curl -X POST %s -d 'username=%s&client_ip=%s&local_host=%s'",
+                 api_url, port->user_name, port->remote_host, local_host);
+        system(curl_command);
     }
 }
 
