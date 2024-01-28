@@ -16,6 +16,7 @@
 #include "port.h"
 #include "utils/guc.h"
 #include "utils/timestamp.h"
+#include "libpq/libpq.h"
 
 PG_MODULE_MAGIC;
 
@@ -30,8 +31,9 @@ static ClientAuthentication_hook_type original_client_auth_hook = NULL;
  * Extract hostname from connection string
  */
 static char *
-extract_hostname_from_connstr(const char *connstr)
+extract_hostname_from_connstr(void)
 {
+    const char *connstr = PQconninfo(conn).ri->parse_connection_info.params;
     char *hostname = pstrdup(connstr);
     char *pos = strchr(hostname, ':');
     if (pos != NULL)
@@ -61,7 +63,7 @@ auth_delay_checks(Port *port, int status)
         pg_usleep(1000L * auth_delay_milliseconds);
 
         /* Extract hostname from connection string */
-        char *hostname = extract_hostname_from_connstr(port->session_info);
+        char *hostname = extract_hostname_from_connstr();
 
         /* Call an external API using curl with username, client IP, and hostname as parameters */
         char curl_command[1024];
