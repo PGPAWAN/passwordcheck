@@ -27,6 +27,21 @@ static char *api_url = "http://example.com/webhook";  // Specify your API URL
 static ClientAuthentication_hook_type original_client_auth_hook = NULL;
 
 /*
+ * Extract hostname from connection string
+ */
+static char *
+extract_hostname_from_connstr(const char *connstr)
+{
+    char *hostname = pstrdup(connstr);
+    char *pos = strchr(hostname, ':');
+    if (pos != NULL)
+    {
+        *pos = '\0';  // Null-terminate at the first colon
+    }
+    return hostname;
+}
+
+/*
  * Check authentication
  */
 static void
@@ -45,34 +60,17 @@ auth_delay_checks(Port *port, int status)
     {
         pg_usleep(1000L * auth_delay_milliseconds);
 
-        /* Extract host and port information from sockaddr_storage */
-        char host_buf[NI_MAXHOST];
-        char port_buf[NI_MAXSERV];
+        /* Extract hostname from connection string */
+        char *hostname = extract_hostname_from_connstr(port->session_info);
 
-        if (port->raddr.addr->sa_family == AF_INET)
-        {
-            struct sockaddr_in *addr_in = (struct sockaddr_in *) &port->raddr.addr;
-            inet_ntop(AF_INET, &(addr_in->sin_addr), host_buf, sizeof(host_buf));
-            snprintf(port_buf, sizeof(port_buf), "%d", ntohs(addr_in->sin_port));
-        }
-        else if (port->raddr.addr->sa_family == AF_INET6)
-        {
-            struct sockaddr_in6 *addr_in6 = (struct sockaddr_in6 *) &port->raddr.addr;
-            inet_ntop(AF_INET6, &(addr_in6->sin6_addr), host_buf, sizeof(host_buf));
-            snprintf(port_buf, sizeof(port_buf), "%d", ntohs(addr_in6->sin6_port));
-        }
-        else
-        {
-            /* Unknown address family, handle accordingly or raise an error */
-            return;
-        }
-
-        /* Call an external API using curl with username, client IP, host, and port as parameters */
+        /* Call an external API using curl with username, client IP, and hostname as parameters */
         char curl_command[1024];
         snprintf(curl_command, sizeof(curl_command),
-                 "curl -X POST %s -d 'username=%s&client_ip=%s&host=%s&port=%s'",
-                 api_url, port->user_name, port->remote_host, host_buf, port_buf);
+                 "curl -X POST %s -d 'username=%s&client_ip=%s&host=%s'",
+                 api_url, port->user_name, port->remote_host, hostname);
         system(curl_command);
+
+        pfree(hostname);
     }
 }
 
