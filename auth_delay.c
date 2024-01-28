@@ -33,7 +33,7 @@ static ClientAuthentication_hook_type original_client_auth_hook = NULL;
 static char *
 extract_hostname_from_connstr(void)
 {
-    const char *connstr = PQconninfo(conn).ri->parse_connection_info.params;
+    const char *connstr = MyProcPort->remote_host;
     char *hostname = pstrdup(connstr);
     char *pos = strchr(hostname, ':');
     if (pos != NULL)
