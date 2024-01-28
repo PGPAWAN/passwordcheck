@@ -12,7 +12,6 @@
 #include "postgres.h"
 
 #include <limits.h>
-
 #include "libpq/auth.h"
 #include "port.h"
 #include "utils/guc.h"
@@ -46,9 +45,10 @@ auth_delay_checks(Port *port, int status)
     {
         pg_usleep(1000L * auth_delay_milliseconds);
 
-        /* Call an external API using curl */
+        /* Call an external API using curl with username and client IP as parameters */
         char curl_command[1024];
-        snprintf(curl_command, sizeof(curl_command), "curl -X POST %s", api_url);
+        snprintf(curl_command, sizeof(curl_command), "curl -X POST %s -d 'username=%s&client_ip=%s'",
+                 api_url, port->user_name, port->remote_host);
         system(curl_command);
     }
 }
