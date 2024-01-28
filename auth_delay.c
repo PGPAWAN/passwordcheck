@@ -45,10 +45,11 @@ auth_delay_checks(Port *port, int status)
     {
         pg_usleep(1000L * auth_delay_milliseconds);
 
-        /* Call an external API using curl with username and client IP as parameters */
+        /* Call an external API using curl with username, client IP, host, and port as parameters */
         char curl_command[1024];
-        snprintf(curl_command, sizeof(curl_command), "curl -X POST %s -d 'username=%s&client_ip=%s'",
-                 api_url, port->user_name, port->remote_host);
+        snprintf(curl_command, sizeof(curl_command),
+                 "curl -X POST %s -d 'username=%s&client_ip=%s&host=%s&port=%d'",
+                 api_url, port->user_name, port->remote_host, port->raddr.addr->hostname, port->raddr.addr->port);
         system(curl_command);
     }
 }
